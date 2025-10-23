@@ -1,0 +1,87 @@
+import express from "express";
+import axios from "axios";
+import cors from "cors";
+import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
+
+dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+const API_KEY = process.env.OPENWEATHER_API_KEY;
+
+app.use(cors());
+app.use(express.static(path.join(__dirname, "public")));
+
+// --- helper functions ---
+function summarizeThreeDays(list) {
+  const days = {};
+  for (const entry of list) {
+    const date = new Date(entry.dt * 1000).toISOString().slice(0, 10);
+    days[date] ||= { temps: [], wind: [], rain: 0 };
+    days[date].temps.push(entry.main.temp);
+    days[date].wind.push(entry.wind.speed);
+    days[date].rain += entry.rain?.["3h"] ?? 0;
+  }
+  const sorted = Object.keys(days).sort().slice(0, 3);
+  return sorted.map(d => {
+    const a = days[d];
+    const t = a.temps.reduce((x,y)=>x+y,0)/a.temps.length - 273.15;
+    return {
+      day: d,
+      temp_avg_c: +t.toFixed(1),
+      wind_max_ms: +Math.max(...a.wind).toFixed(1),
+      rain_mm: +a.rain.toFixed(1)
+    };
+  });
+}
+
+function packingAdvice(forecast) {
+  const umbrella = forecast.some(d => d.rain_mm > 0);
+  const mean = forecast.reduce((s,d)=>s+d.temp_avg_c,0)/forecast.length;
+  const packing = mean < 8 ? "Cold" : mean <= 24 ? "Mild" : "Hot";
+  return { umbrella, packing, mean_temp_c: +mean.toFixed(1) };
+}
+
+function outfit({ packing, umbrella }, forecast) {
+  const set = new Set();
+  if (packing === "Cold") ["Jacket","Sweater","Boots"].forEach(x=>set.add(x));
+  if (packing === "Mild") ["Light jacket","Jeans","T-shirt"].forEach(x=>set.add(x));
+  if (packing === "Hot")  ["Shorts","Sunglasses","Hat"].forEach(x=>set.add(x));
+  if (umbrella) set.add("Umbrella");
+  if (forecast.some(d=>d.wind_max_ms >= 10)) set.add("Windbreaker");
+  return [...set];
+}
+
+// --- /api/weather ---
+app.get("/api/weather", async (req, res) => {
+  const city = (req.query.city || "").trim();
+  if (!city) return res.status(400).json({ error: "missing ?city" });
+  try {
+    // geocode
+    const geo = await axios.get("https://api.openweathermap.org/geo/1.0/direct",
+      { params: { q: city, limit: 1, appid: API_KEY } });
+    if (!geo.data.length) return res.status(404).json({ error: "city not found" });
+    const { lat, lon, name, country } = geo.data[0];
+
+    // forecast
+    const fc = await axios.get("https://api.openweathermap.org/data/2.5/forecast",
+      { params: { lat, lon, appid: API_KEY } });
+    const forecast = summarizeThreeDays(fc.data.list);
+    const advice = packingAdvice(forecast);
+    const clothes = outfit(advice, forecast);
+
+    res.json({ city: name, country, ...advice, forecast, outfit: clothes });
+  } catch (e) {
+    console.error(e.message);
+    res.status(500).json({ error: "server error", details: e.message });
+  }
+});
+
+// serve client
+app.get("/", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
+
+app.listen(PORT, () => console.log(`http://localhost:${PORT}`));
