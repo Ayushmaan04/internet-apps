@@ -123,7 +123,7 @@ function summarizeAirForecast(list) {
 // ------------------------------------------------------------------
 
 // GET /api/weather3?city=Dublin
-app.get("/api/weather3", async (req, res) => {
+app.get("/weather3", async (req, res) => {
   try {
     const city = (req.query.city || "").trim();
     if (!city) return res.status(400).json({ error: "Missing ?city" });
@@ -192,7 +192,7 @@ app.get("/api/weather3", async (req, res) => {
 });
 
 // GET /api/air3?city=Dublin
-app.get("/api/air3", async (req, res) => {
+app.get("/air3", async (req, res) => {
   try {
     const city = (req.query.city || "").trim();
     if (!city) return res.status(400).json({ error: "Missing ?city" });
@@ -220,12 +220,12 @@ app.get("/api/air3", async (req, res) => {
 });
 
 // autocomplete cities: GET /api/cities?q=Dub
-app.get("/api/cities", async (req, res) => {
+app.get("/cities", async (req, res) => {
   try {
     const q = (req.query.q || "").toString().trim();
     if (q.length < 2) return res.json([]); // require at least 2 chars
 
-    const { data } = await axios.get("https://api.openweathermap.org/geo/1.0/direct", {
+    const { data } = await axios.get("https:/ .openweathermap.org/geo/1.0/direct", {
       params: { q, limit: 5, appid: process.env.OPENWEATHER_API_KEY }
     });
 
@@ -245,7 +245,7 @@ app.get("/api/cities", async (req, res) => {
 
 // LLM-powered packing assistant
 // GET /api/pack?city=Dublin
-app.get("/api/pack", async (req, res) => {
+app.get("/pack", async (req, res) => {
   try {
     const cityQ = (req.query.city || "").toString().trim();
     if (!cityQ) return res.status(400).json({ error: "Missing ?city" });
