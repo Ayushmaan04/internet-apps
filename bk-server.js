@@ -121,6 +121,14 @@ function summarizeAirForecast(list) {
 // ------------------------------------------------------------------
 // Endpoints
 // ------------------------------------------------------------------
+// Simple health check route
+app.get("/health", (req, res) => {
+  res.json({
+    status: "ok",
+    environment: process.env.VERCEL ? "vercel" : "local",
+    timestamp: new Date().toISOString(),
+  });
+});
 
 // GET /api/weather3?city=Dublin
 app.get("/weather3", async (req, res) => {
@@ -369,10 +377,6 @@ app.get("/pack", async (req, res) => {
 // only listen when running locally (not on Vercel)
 if (!process.env.VERCEL) {
   const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
-    console.log(`http://localhost:${PORT}`);
-  });
+  app.listen(PORT, () => console.log("Local:", PORT));
 }
-
-// IMPORTANT: export the app for Vercel's serverless wrapper
 export default app;
